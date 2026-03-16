@@ -1,0 +1,19 @@
+{
+  "outputDirectory": "dist",
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "/api/$1"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ],
+  "env": {
+    "NEXT_PUBLIC_SUPABASE_URL": "https://otgopumbastbjnkhikjd.supabase.co",
+    "NEXT_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im90Z29wdW1iYXN0Ympua2hpa2pkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA2Njg0OTEsImV4cCI6MjA4NjI0NDQ5MX0.r5caijAVxQ_2_k_zrcIB-LoW6b1joQn0YKu8BsTxJwY",
+    "SUPABASE_SERVICE_ROLE_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im90Z29wdW1iYXN0Ympua2hpa2pkIiwicm9sZSI6ImFwcF9mc19kMDc4ODQ0Ni1kZGQ2LTRiNGYtODdiZS05NGFjOWJjMmI0MzlfYWdlbnRfMSIsImlhdCI6MTc3MjUyMDg1MCwiZXhwIjoyMDg3ODgwODUwfQ.oc_3zWl9JCXoQ5nknjrIuAeUJGbea1hc-0pX7h9Yf9c",
+    "SUPABASE_DB_SCHEMA": "fs_d0788446-ddd6-4b4f-87be-94ac9bc2b439_agent_1"
+  }
+}
