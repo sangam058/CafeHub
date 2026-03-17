@@ -6,8 +6,10 @@ import { useAuth } from '../context/AuthContext';
 import StarRating from '../components/StarRating';
 import LoadingSpinner from '../components/LoadingSpinner';
 
+import { supabase } from '../supabase';
+
 export default function Admin() {
-  const { user, token } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [tab, setTab] = useState('stats');
   const [stats, setStats] = useState<any>(null);
@@ -26,50 +28,67 @@ export default function Admin() {
 
   const fetchAll = async () => {
     setLoading(true);
-    const headers = { Authorization: `Bearer ${token}` };
-    const [statsRes, usersRes, ordersRes, resRes, revRes] = await Promise.all([
-      fetch('/api/admin?type=stats', { headers }),
-      fetch('/api/admin?type=users', { headers }),
-      fetch('/api/orders', { headers }),
-      fetch('/api/reservations', { headers }),
-      fetch('/api/reviews', { headers })
-    ]);
-    if (statsRes.ok) setStats(await statsRes.json());
-    if (usersRes.ok) setUsers(await usersRes.json());
-    if (ordersRes.ok) setOrders(await ordersRes.json());
-    if (resRes.ok) setReservations(await resRes.json());
-    if (revRes.ok) setReviews(await revRes.json());
+    try {
+      const [{ data: usersData }, { data: ordersData }, { data: resData }, { data: revData }] = await Promise.all([
+        supabase.from('users').select('*'),
+        supabase.from('orders').select('*').order('created_at', { ascending: false }),
+        supabase.from('reservations').select('*').order('created_at', { ascending: false }),
+        supabase.from('reviews').select('*').order('created_at', { ascending: false })
+      ]);
+
+      if (usersData) setUsers(usersData);
+      if (ordersData) setOrders(ordersData);
+      if (resData) setReservations(resData);
+      if (revData) setReviews(revData);
+
+      // Calculate Stats
+      if (ordersData && usersData && resData && revData) {
+        const totalRevenue = ordersData.reduce((sum, o) => sum + parseFloat(o.total_amount || 0), 0);
+        const paidOrders = ordersData.filter(o => o.status === 'paid').length;
+        const avgRating = revData.length > 0 
+          ? (revData.reduce((sum, r) => sum + r.rating, 0) / revData.length).toFixed(1) 
+          : 0;
+
+        setStats({
+          totalRevenue,
+          totalOrders: ordersData.length,
+          paidOrders,
+          totalUsers: usersData.length,
+          totalReservations: resData.length,
+          totalReviews: revData.length,
+          avgRating,
+          totalPointsRedeemed: ordersData.reduce((sum, o) => sum + (o.points_redeemed || 0), 0)
+        });
+      }
+    } catch (err) {
+      console.error('Admin fetch error:', err);
+    }
     setLoading(false);
   };
 
   const updateReservationStatus = async (id: number, status: string) => {
-    await fetch('/api/reservations', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ id, status })
-    });
-    fetchAll();
+    const { error } = await supabase.from('reservations').update({ status }).eq('id', id);
+    if (!error) fetchAll();
   };
 
   const deleteReview = async (id: number) => {
     if (!confirm('Delete this review?')) return;
-    await fetch('/api/reviews', {
-      method: 'DELETE',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ id })
-    });
-    fetchAll();
+    const { error } = await supabase.from('reviews').delete().eq('id', id);
+    if (!error) fetchAll();
   };
+
 
   const updatePoints = async () => {
     if (!editPoints) return;
-    await fetch('/api/loyalty', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ user_id: editPoints.userId, points: editPoints.points })
-    });
-    setEditPoints(null);
-    fetchAll();
+    const { error } = await supabase
+      .from('users')
+      .update({ loyalty_points: editPoints.points })
+      .eq('id', editPoints.userId);
+    
+    if (!error) {
+      setEditPoints(null);
+      fetchAll();
+    }
   };
 
   const tabs = [

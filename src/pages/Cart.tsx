@@ -5,28 +5,12 @@ import { Minus, Plus, Trash2, ShoppingCart, ArrowLeft, Tag, CreditCard, CheckCir
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import LoadingSpinner from '../components/LoadingSpinner';
+import { supabase } from '../supabase';
 
-// Declare Razorpay on window
-declare global {
-  interface Window {
-    Razorpay: any;
-  }
-}
-
-function loadRazorpayScript(): Promise<boolean> {
-  return new Promise((resolve) => {
-    if (window.Razorpay) { resolve(true); return; }
-    const script = document.createElement('script');
-    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
-    script.onload = () => resolve(true);
-    script.onerror = () => resolve(false);
-    document.body.appendChild(script);
-  });
-}
 
 export default function Cart() {
   const { cart, cartTotal, loading, updateQuantity, removeItem, clearCart } = useCart();
-  const { user, token, refreshUser } = useAuth();
+  const { user, refreshUser } = useAuth();
   const navigate = useNavigate();
   const [redeemPoints, setRedeemPoints] = useState(false);
   const [processing, setProcessing] = useState(false);
@@ -48,119 +32,52 @@ export default function Cart() {
       quantity: c.quantity,
     }));
 
-    const res = await fetch('/api/orders', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({
-        items,
-        total_amount: finalTotal,
-        discount_applied: discount,
-        points_redeemed: pointsToRedeem,
-        payment_id: paymentId,
-        razorpay_order_id: razorpayOrderId,
-      }),
+    const { error } = await supabase.from('orders').insert({
+      user_id: user?.id,
+      user_name: user?.name,
+      user_email: user?.email,
+      items: JSON.stringify(items),
+      total_amount: finalTotal,
+      discount_applied: discount,
+      points_redeemed: pointsToRedeem,
+      payment_id: paymentId,
+      razorpay_order_id: razorpayOrderId,
+      status: 'paid'
     });
-    return res.ok;
+
+    if (error) console.error('Order save error:', error);
+    return !error;
   };
 
   const handleCheckout = async () => {
-    if (!user || !token) { navigate('/login'); return; }
+    if (!user) { navigate('/login'); return; }
     if (cart.length === 0) return;
     setProcessing(true);
     setMsg('');
 
     try {
-      // Step 1: Create Razorpay order on backend
-      const orderRes = await fetch('/api/payment', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ action: 'create_order', amount: finalTotal }),
-      });
-      const orderData = await orderRes.json();
-      if (!orderRes.ok) throw new Error(orderData.error || 'Failed to create order');
-
-      // Step 2: Demo mode (no Razorpay keys configured) — simulate payment
-      if (orderData.demo || !orderData.key) {
-        // Show a brief "processing" delay for realism
-        await new Promise(r => setTimeout(r, 1200));
-        const ok = await saveOrder('pay_demo_' + Date.now(), orderData.id);
-        if (ok) {
-          await refreshUser();
-          setPaymentSuccess(true);
-        } else {
-          setMsg('Order save failed. Please try again.');
-        }
-        setProcessing(false);
-        return;
+      // Demo mode: Simulate payment since API is legacy
+      // Show a brief "processing" delay for realism
+      await new Promise(r => setTimeout(r, 1200));
+      
+      const orderId = 'order_demo_' + Date.now();
+      const paymentId = 'pay_demo_' + Date.now();
+      
+      const ok = await saveOrder(paymentId, orderId);
+      if (ok) {
+        // Increment loyalty points for the user
+        const newPoints = (user.loyalty_points || 0) - pointsToRedeem + pointsToEarn;
+        await supabase.from('users').update({ loyalty_points: newPoints }).eq('id', user.id);
+        
+        await clearCart();
+        await refreshUser();
+        setPaymentSuccess(true);
+      } else {
+        setMsg('Order save failed. Please ensure database tables are setup.');
       }
-
-      // Step 3: Load Razorpay SDK
-      const loaded = await loadRazorpayScript();
-      if (!loaded) {
-        setMsg('Failed to load payment gateway. Check your internet connection.');
-        setProcessing(false);
-        return;
-      }
-
-      // Step 4: Open Razorpay modal
-      const options = {
-        key: orderData.key,
-        amount: orderData.amount,
-        currency: orderData.currency || 'INR',
-        name: 'CafeHub',
-        description: `Order of ${cart.length} item(s)`,
-        image: '/favicon.svg',
-        order_id: orderData.id,
-        prefill: {
-          name: user.name,
-          email: user.email,
-        },
-        theme: { color: '#f59e0b' },
-        handler: async (response: any) => {
-          // Step 5: Verify payment on backend
-          const verifyRes = await fetch('/api/payment', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-            body: JSON.stringify({
-              action: 'verify',
-              payment_id: response.razorpay_payment_id,
-              razorpay_order_id: response.razorpay_order_id,
-              razorpay_signature: response.razorpay_signature,
-            }),
-          });
-          const verifyData = await verifyRes.json();
-          if (!verifyRes.ok || !verifyData.verified) {
-            setMsg('Payment verification failed. Contact support.');
-            setProcessing(false);
-            return;
-          }
-
-          // Step 6: Save order in DB
-          const ok = await saveOrder(response.razorpay_payment_id, response.razorpay_order_id);
-          if (ok) {
-            await refreshUser();
-            setPaymentSuccess(true);
-          } else {
-            setMsg('Payment received but order save failed. Contact support with payment ID: ' + response.razorpay_payment_id);
-          }
-          setProcessing(false);
-        },
-        modal: {
-          ondismiss: () => {
-            setMsg('Payment cancelled. Your cart is still saved.');
-            setProcessing(false);
-          },
-        },
-      };
-
-      const rzp = new window.Razorpay(options);
-      rzp.on('payment.failed', (response: any) => {
-        setMsg('Payment failed: ' + (response.error?.description || 'Unknown error'));
-        setProcessing(false);
-      });
-      rzp.open();
     } catch (err: any) {
       setMsg(err.message || 'Something went wrong. Please try again.');
+    } finally {
       setProcessing(false);
     }
   };

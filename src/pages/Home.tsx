@@ -5,6 +5,7 @@ import { Coffee, ChevronRight, Clock, MapPin, Phone, Award, ShoppingCart, Calend
 import StarRating from '../components/StarRating';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../components/Toast';
+import { supabase } from '../supabase';
 
 interface Review {
   id: number;
@@ -33,34 +34,57 @@ export default function Home() {
   const [reviewMsg, setReviewMsg] = useState('');
 
   useEffect(() => {
-    fetch('/api/reviews').then(r => r.json()).then(setReviews).catch(() => {});
-    fetch('/api/menu').then(r => r.json()).then(d => setFeatured(d.slice(0, 4))).catch(() => {});
+    const fetchData = async () => {
+      try {
+        const { data: reviewsData } = await supabase
+          .from('reviews')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(3);
+        if (reviewsData) setReviews(reviewsData);
+
+        const { data: menuData } = await supabase
+          .from('menu_items')
+          .select('*')
+          .limit(4);
+        if (menuData) setFeatured(menuData);
+      } catch (err) {
+        console.error('Error fetching home data:', err);
+      }
+    };
+    fetchData();
   }, []);
 
   const submitReview = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
     setReviewMsg('');
-    const token = localStorage.getItem('cafehub_token');
     try {
-      const res = await fetch('/api/reviews', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify(reviewForm)
+      const { error: err } = await supabase.from('reviews').insert({
+        ...reviewForm,
+        user_name: user?.name || 'Guest',
+        user_id: user?.id
       });
-      const data = await res.json();
-      if (res.ok) {
-        setReviewMsg('Review submitted! Thank you. 📧 A notification has been sent.');
+
+      if (!err) {
+        setReviewMsg('Review submitted! Thank you.');
         showToast('Review submitted successfully! ⭐', 'success');
         setReviewForm({ rating: 5, comment: '' });
-        fetch('/api/reviews').then(r => r.json()).then(setReviews);
+        
+        // Refresh reviews
+        const { data: reviewsData } = await supabase
+          .from('reviews')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(3);
+        if (reviewsData) setReviews(reviewsData);
       } else {
-        setReviewMsg(data.error || 'Failed to submit');
-        showToast(data.error || 'Failed to submit review', 'error');
+        setReviewMsg(err.message || 'Failed to submit');
+        showToast(err.message || 'Failed to submit review', 'error');
       }
-    } catch {
+    } catch (err: any) {
       setReviewMsg('Something went wrong');
-      showToast('Something went wrong', 'error');
+      showToast(err.message || 'Something went wrong', 'error');
     }
     setSubmitting(false);
   };
