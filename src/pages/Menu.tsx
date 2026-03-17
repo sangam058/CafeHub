@@ -5,6 +5,7 @@ import MenuCard from '../components/MenuCard';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../supabase';
+import { FALLBACK_MENU } from '../data/fallbackMenu';
 
 interface MenuItem {
   id: number;
@@ -39,7 +40,7 @@ export default function Menu() {
       }
       const { data, error } = await query;
       if (error) throw error;
-      setItems(data || []);
+      setItems(data && data.length > 0 ? data : (category === 'All' ? FALLBACK_MENU : FALLBACK_MENU.filter(i => i.category === category)));
     } catch (err) { console.error(err); }
     setLoading(false);
   };

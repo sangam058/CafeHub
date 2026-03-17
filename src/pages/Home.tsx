@@ -6,6 +6,7 @@ import StarRating from '../components/StarRating';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../components/Toast';
 import { supabase } from '../supabase';
+import { FALLBACK_MENU } from '../data/fallbackMenu';
 
 interface Review {
   id: number;
@@ -47,7 +48,12 @@ export default function Home() {
           .from('menu_items')
           .select('*')
           .limit(4);
-        if (menuData) setFeatured(menuData);
+
+        if (menuData && menuData.length > 0) {
+          setFeatured(menuData);
+        } else {
+          setFeatured(FALLBACK_MENU.slice(0, 4));
+        }
       } catch (err) {
         console.error('Error fetching home data:', err);
       }

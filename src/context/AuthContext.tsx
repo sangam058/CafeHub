@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import { supabase } from '../supabase';
 
 interface User {
-  id: string; // Changed from number to string for Supabase UUID
+  id: string; // From Supabase Auth UUID
   name: string;
   email: string;
   role: string;
@@ -75,9 +75,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) throw error;
-    await refreshUser();
+    try {
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) {
+        if (error.message.includes('Invalid login credentials')) {
+          throw new Error('Invalid email or password. If you "aman@gmail.com", please ensure you have created this user in Supabase Auth dashboard.');
+        }
+        throw error;
+      }
+      await refreshUser();
+    } catch (err) {
+      throw err;
+    }
   };
 
   const signup = async (name: string, email: string, password: string) => {
