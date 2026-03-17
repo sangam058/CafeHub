@@ -33,6 +33,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(currentSession);
       
       if (currentSession?.user) {
+        // Fetch from our new professional 'users' table
         const { data: userData } = await supabase
           .from('users')
           .select('*')
@@ -42,10 +43,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (userData) {
           setUser({
             id: userData.id,
-            name: userData.name || userData.full_name || currentSession.user.email?.split('@')[0],
+            name: userData.name,
             email: userData.email,
             role: userData.role || 'customer',
             loyalty_points: userData.loyalty_points || 0
+          });
+        } else {
+          // Fallback if trigger hasn't finished yet
+          setUser({
+            id: currentSession.user.id,
+            name: currentSession.user.user_metadata?.full_name || 'Customer',
+            email: currentSession.user.email || '',
+            role: 'customer',
+            loyalty_points: 0
           });
         }
       } else {

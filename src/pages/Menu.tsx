@@ -8,7 +8,7 @@ import { supabase } from '../supabase';
 import { FALLBACK_MENU } from '../data/fallbackMenu';
 
 interface MenuItem {
-  id: number;
+  id: string; // Changed to string for UUID
   name: string;
   description: string;
   category: string;
@@ -69,7 +69,7 @@ export default function Menu() {
     setShowForm(true);
   };
 
-  const handleDelete = async (id: number) => {
+  const handleDelete = async (id: string) => {
     if (!confirm('Delete this item?')) return;
     try {
       const { error } = await supabase.from('menu_items').delete().eq('id', id);

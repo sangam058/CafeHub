@@ -4,11 +4,11 @@ import { useAuth } from './AuthContext';
 import { supabase } from '../supabase';
 
 interface CartItem {
-  id: number;
+  id: string; // UUID
   quantity: number;
-  menu_item_id: number;
+  menu_item_id: string; // UUID
   menu_items: {
-    id: number;
+    id: string; // UUID
     name: string;
     description: string;
     price: number;
@@ -23,9 +23,9 @@ interface CartContextType {
   cartTotal: number;
   loading: boolean;
   fetchCart: () => Promise<void>;
-  addToCart: (menuItemId: number) => Promise<void>;
-  updateQuantity: (id: number, quantity: number) => Promise<void>;
-  removeItem: (id: number) => Promise<void>;
+  addToCart: (menuItemId: string) => Promise<void>;
+  updateQuantity: (id: string, quantity: number) => Promise<void>;
+  removeItem: (id: string) => Promise<void>;
   clearCart: () => Promise<void>;
 }
 
@@ -60,7 +60,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     else setCart([]);
   }, [user, fetchCart]);
 
-  const addToCart = async (menuItemId: number) => {
+  const addToCart = async (menuItemId: string) => {
     if (!user) return;
     
     // Check if item already exists
@@ -80,7 +80,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     await fetchCart();
   };
 
-  const updateQuantity = async (id: number, quantity: number) => {
+  const updateQuantity = async (id: string, quantity: number) => {
     if (!user) return;
     if (quantity <= 0) {
       await removeItem(id);
@@ -90,7 +90,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     await fetchCart();
   };
 
-  const removeItem = async (id: number) => {
+  const removeItem = async (id: string) => {
     if (!user) return;
     await supabase.from('cart').delete().eq('id', id);
     await fetchCart();

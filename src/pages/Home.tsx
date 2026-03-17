@@ -17,7 +17,7 @@ interface Review {
 }
 
 interface MenuItem {
-  id: number;
+  id: string; // Changed to string for UUID
   name: string;
   description: string;
   category: string;

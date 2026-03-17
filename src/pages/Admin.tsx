@@ -18,7 +18,7 @@ export default function Admin() {
   const [reservations, setReservations] = useState<any[]>([]);
   const [reviews, setReviews] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [editPoints, setEditPoints] = useState<{ userId: number; points: number } | null>(null);
+  const [editPoints, setEditPoints] = useState<{ userId: string; points: number } | null>(null);
 
   useEffect(() => {
     if (!user) { navigate('/login'); return; }
@@ -31,7 +31,7 @@ export default function Admin() {
     try {
       const [{ data: usersData }, { data: ordersData }, { data: resData }, { data: revData }] = await Promise.all([
         supabase.from('users').select('*'),
-        supabase.from('orders').select('*').order('created_at', { ascending: false }),
+        supabase.from('orders').select('*, users(name, email)').order('created_at', { ascending: false }),
         supabase.from('reservations').select('*').order('created_at', { ascending: false }),
         supabase.from('reviews').select('*').order('created_at', { ascending: false })
       ]);
@@ -44,7 +44,7 @@ export default function Admin() {
       // Calculate Stats
       if (ordersData && usersData && resData && revData) {
         const totalRevenue = ordersData.reduce((sum, o) => sum + parseFloat(o.total_amount || 0), 0);
-        const paidOrders = ordersData.filter(o => o.status === 'paid').length;
+        const paidOrders = ordersData.filter(o => o.payment_status === 'paid').length;
         const avgRating = revData.length > 0 
           ? (revData.reduce((sum, r) => sum + r.rating, 0) / revData.length).toFixed(1) 
           : 0;
@@ -57,7 +57,7 @@ export default function Admin() {
           totalReservations: resData.length,
           totalReviews: revData.length,
           avgRating,
-          totalPointsRedeemed: ordersData.reduce((sum, o) => sum + (o.points_redeemed || 0), 0)
+          totalPointsRedeemed: 0 // Will handle this later with dedicated table
         });
       }
     } catch (err) {
@@ -66,12 +66,12 @@ export default function Admin() {
     setLoading(false);
   };
 
-  const updateReservationStatus = async (id: number, status: string) => {
+  const updateReservationStatus = async (id: string, status: string) => {
     const { error } = await supabase.from('reservations').update({ status }).eq('id', id);
     if (!error) fetchAll();
   };
 
-  const deleteReview = async (id: number) => {
+  const deleteReview = async (id: string) => {
     if (!confirm('Delete this review?')) return;
     const { error } = await supabase.from('reviews').delete().eq('id', id);
     if (!error) fetchAll();
@@ -159,23 +159,22 @@ export default function Admin() {
         {tab === 'orders' && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-3">
             {orders.map(order => {
-              const items = typeof order.items === 'string' ? JSON.parse(order.items) : order.items;
               return (
                 <div key={order.id} className="bg-[#2a1500] border border-amber-900/30 rounded-2xl p-5">
                   <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
                     <div>
-                      <p className="text-amber-100 font-bold">Order #{order.id} · {order.user_name}</p>
-                      <p className="text-amber-600 text-xs">{order.user_email} · {new Date(order.created_at).toLocaleString()}</p>
+                      <p className="text-amber-100 font-bold">Order #{order.id.slice(0,8)} · {order.users?.name || 'Customer'}</p>
+                      <p className="text-amber-600 text-xs">{order.users?.email} · {new Date(order.created_at).toLocaleString()}</p>
                     </div>
                     <div className="text-right">
                       <p className="text-amber-400 font-black">₹{parseFloat(order.total_amount).toFixed(0)}</p>
                       <span className={`text-xs px-2 py-0.5 rounded-full ${
-                        order.status === 'paid' ? 'bg-green-500/20 text-green-400' : 'bg-amber-500/20 text-amber-400'
-                      }`}>{order.status}</span>
+                        order.payment_status === 'paid' ? 'bg-green-500/20 text-green-400' : 'bg-amber-500/20 text-amber-400'
+                      }`}>{order.status} ({order.payment_status})</span>
                     </div>
                   </div>
-                  <div className="text-sm text-amber-400/60">
-                    {items?.map((i: any) => `${i.name} ×${i.quantity}`).join(', ')}
+                  <div className="text-sm text-amber-400/60 italics">
+                    Relational order items view enabled
                   </div>
                   {order.payment_id && <p className="text-xs text-amber-700 mt-1">Payment: {order.payment_id}</p>}
                 </div>

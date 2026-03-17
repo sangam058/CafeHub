@@ -7,7 +7,7 @@ import { useToast } from './Toast';
 import { useNavigate } from 'react-router-dom';
 
 interface MenuItem {
-  id: number;
+  id: string; // Changed to string for UUID
   name: string;
   description: string;
   category: string;
@@ -19,7 +19,7 @@ interface MenuItem {
 interface MenuCardProps {
   item: MenuItem;
   onEdit?: (item: MenuItem) => void;
-  onDelete?: (id: number) => void;
+  onDelete?: (id: string) => void;
   isAdmin?: boolean;
 }
 

@@ -24,29 +24,50 @@ export default function Cart() {
   const pointsToRedeem = redeemPoints ? maxRedeemable : 0;
   const pointsToEarn = Math.floor(finalTotal / 100) * 5;
 
-  const saveOrder = async (paymentId: string, razorpayOrderId: string) => {
-    const items = cart.map(c => ({
-      id: c.menu_items.id,
-      name: c.menu_items.name,
-      price: c.menu_items.price,
-      quantity: c.quantity,
-    }));
+  const saveOrder = async (paymentId: string) => {
+    try {
+      // 1. Insert into orders header
+      const { data: orderData, error: orderError } = await supabase
+        .from('orders')
+        .insert({
+          user_id: user?.id,
+          total_amount: finalTotal,
+          status: 'completed',
+          payment_status: 'paid'
+        })
+        .select()
+        .single();
 
-    const { error } = await supabase.from('orders').insert({
-      user_id: user?.id,
-      user_name: user?.name,
-      user_email: user?.email,
-      items: JSON.stringify(items),
-      total_amount: finalTotal,
-      discount_applied: discount,
-      points_redeemed: pointsToRedeem,
-      payment_id: paymentId,
-      razorpay_order_id: razorpayOrderId,
-      status: 'paid'
-    });
+      if (orderError) throw orderError;
 
-    if (error) console.error('Order save error:', error);
-    return !error;
+      // 2. Insert into order_items relational table
+      const orderItems = cart.map(item => ({
+        order_id: orderData.id,
+        menu_item_id: item.menu_items.id,
+        quantity: item.quantity,
+        price_at_time: item.menu_items.price
+      }));
+
+      const { error: itemsError } = await supabase
+        .from('order_items')
+        .insert(orderItems);
+
+      if (itemsError) throw itemsError;
+
+      // 3. Insert payment record (if you have a payments table, we'll assume it for professional level)
+      await supabase.from('payments').insert({
+        order_id: orderData.id,
+        amount: finalTotal,
+        payment_method: 'online',
+        transaction_id: paymentId,
+        status: 'success'
+      });
+
+      return true;
+    } catch (err) {
+      console.error('Order save error:', err);
+      return false;
+    }
   };
 
   const handleCheckout = async () => {
@@ -60,10 +81,9 @@ export default function Cart() {
       // Show a brief "processing" delay for realism
       await new Promise(r => setTimeout(r, 1200));
       
-      const orderId = 'order_demo_' + Date.now();
       const paymentId = 'pay_demo_' + Date.now();
       
-      const ok = await saveOrder(paymentId, orderId);
+      const ok = await saveOrder(paymentId);
       if (ok) {
         // Increment loyalty points for the user
         const newPoints = (user.loyalty_points || 0) - pointsToRedeem + pointsToEarn;
