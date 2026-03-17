@@ -41,7 +41,10 @@ export default function Menu() {
       const { data, error } = await query;
       if (error) throw error;
       setItems(data && data.length > 0 ? data : (category === 'All' ? FALLBACK_MENU : FALLBACK_MENU.filter(i => i.category === category)));
-    } catch (err) { console.error(err); }
+    } catch (err) { 
+      console.error(err);
+      setItems(category === 'All' ? FALLBACK_MENU : FALLBACK_MENU.filter(i => i.category === category));
+    }
     setLoading(false);
   };
 

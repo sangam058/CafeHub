@@ -56,6 +56,7 @@ export default function Home() {
         }
       } catch (err) {
         console.error('Error fetching home data:', err);
+        setFeatured(FALLBACK_MENU.slice(0, 4));
       }
     };
     fetchData();
