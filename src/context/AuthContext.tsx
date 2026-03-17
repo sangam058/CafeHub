@@ -1,8 +1,9 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
+import { supabase } from '../supabase';
 
 interface User {
-  id: number;
+  id: string; // Changed from number to string for Supabase UUID
   name: string;
   email: string;
   role: string;
@@ -23,70 +24,92 @@ const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [token, setToken] = useState<string | null>(localStorage.getItem('cafehub_token'));
+  const [session, setSession] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   const refreshUser = async () => {
-    const t = localStorage.getItem('cafehub_token');
-    if (!t) { setLoading(false); return; }
     try {
-      const res = await fetch('/api/auth/me', { headers: { Authorization: `Bearer ${t}` } });
-      if (res.ok) {
-        const data = await res.json();
-        setUser(data.user);
-        setToken(t);
+      const { data: { session: currentSession } } = await supabase.auth.getSession();
+      setSession(currentSession);
+      
+      if (currentSession?.user) {
+        const { data: userData } = await supabase
+          .from('users')
+          .select('*')
+          .eq('id', currentSession.user.id)
+          .single();
+          
+        if (userData) {
+          setUser({
+            id: userData.id,
+            name: userData.name || userData.full_name || currentSession.user.email?.split('@')[0],
+            email: userData.email,
+            role: userData.role || 'customer',
+            loyalty_points: userData.loyalty_points || 0
+          });
+        }
       } else {
-        localStorage.removeItem('cafehub_token');
         setUser(null);
-        setToken(null);
       }
-    } catch { 
+    } catch (err) {
+      console.error('Auth refresh error:', err);
       setUser(null);
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => { refreshUser(); }, []);
+  useEffect(() => {
+    refreshUser();
+    
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+      if (session) {
+        refreshUser();
+      } else {
+        setUser(null);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   const login = async (email: string, password: string) => {
-    const res = await fetch('/api/auth/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password })
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error);
-    localStorage.setItem('cafehub_token', data.token);
-    setToken(data.token);
-    setUser(data.user);
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+    await refreshUser();
   };
 
   const signup = async (name: string, email: string, password: string) => {
-    const res = await fetch('/api/auth/signup', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, email, password })
+    const { data, error } = await supabase.auth.signUp({ 
+      email, 
+      password,
+      options: { data: { full_name: name } }
     });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error);
-    localStorage.setItem('cafehub_token', data.token);
-    setToken(data.token);
-    setUser(data.user);
+    if (error) throw error;
+    
+    // Create user record in 'users' table if it doesn't exist (depends on trigger usually, but let's be safe)
+    if (data.user) {
+      await supabase.from('users').upsert({
+        id: data.user.id,
+        email: email,
+        name: name,
+        role: 'customer',
+        loyalty_points: 0
+      });
+    }
+    
+    await refreshUser();
   };
 
   const logout = async () => {
-    const t = localStorage.getItem('cafehub_token');
-    if (t) {
-      await fetch('/api/auth/signout', { method: 'POST', headers: { Authorization: `Bearer ${t}` } });
-    }
-    localStorage.removeItem('cafehub_token');
-    setToken(null);
+    await supabase.auth.signOut();
     setUser(null);
+    setSession(null);
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, loading, login, signup, logout, refreshUser }}>
+    <AuthContext.Provider value={{ user, token: session?.access_token || null, loading, login, signup, logout, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

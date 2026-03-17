@@ -2,9 +2,10 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Calendar, Clock, Users, Phone, Mail, User, CheckCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { supabase } from '../supabase';
 
 export default function Reserve() {
-  const { user, token } = useAuth();
+  const { user } = useAuth();
   const [form, setForm] = useState({
     name: user?.name || '',
     email: user?.email || '',
@@ -24,20 +25,21 @@ export default function Reserve() {
     setSubmitting(true);
     setError('');
     try {
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (token) headers['Authorization'] = `Bearer ${token}`;
-      const res = await fetch('/api/reservations', {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(form)
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setSuccess(true);
-      } else {
-        setError(data.error || 'Booking failed');
-      }
-    } catch { setError('Something went wrong'); }
+      const payload = {
+        ...form,
+        user_id: user?.id || null,
+        guests: parseInt(form.guests),
+        status: 'pending'
+      };
+      
+      const { error: err } = await supabase.from('reservations').insert(payload);
+      
+      if (err) throw err;
+      
+      setSuccess(true);
+    } catch (err: any) { 
+      setError(err.message || 'Booking failed'); 
+    }
     setSubmitting(false);
   };
 

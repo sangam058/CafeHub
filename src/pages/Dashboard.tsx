@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { ShoppingBag, Calendar, Award, Package } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import LoadingSpinner from '../components/LoadingSpinner';
+import { supabase } from '../supabase';
 
 export default function Dashboard() {
   const { user, token } = useAuth();
@@ -18,12 +19,17 @@ export default function Dashboard() {
     if (!user) { navigate('/login'); return; }
     const fetchAll = async () => {
       setLoading(true);
-      const [ordRes, resRes] = await Promise.all([
-        fetch('/api/orders', { headers: { Authorization: `Bearer ${token}` } }),
-        fetch('/api/reservations', { headers: { Authorization: `Bearer ${token}` } })
-      ]);
-      if (ordRes.ok) setOrders(await ordRes.json());
-      if (resRes.ok) setReservations(await resRes.json());
+      try {
+        const [ordRes, resRes] = await Promise.all([
+          supabase.from('orders').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
+          supabase.from('reservations').select('*').eq('user_id', user.id).order('created_at', { ascending: false })
+        ]);
+        
+        if (ordRes.data) setOrders(ordRes.data);
+        if (resRes.data) setReservations(resRes.data);
+      } catch (err) {
+        console.error('Error fetching dashboard data:', err);
+      }
       setLoading(false);
     };
     fetchAll();

@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import type { ReactNode } from 'react';
 import { useAuth } from './AuthContext';
+import { supabase } from '../supabase';
 
 interface CartItem {
   id: number;
@@ -31,30 +32,28 @@ interface CartContextType {
 const CartContext = createContext<CartContextType | null>(null);
 
 export function CartProvider({ children }: { children: ReactNode }) {
-  const { token, user } = useAuth();
+  const { user } = useAuth();
   const [cart, setCart] = useState<CartItem[]>([]);
   const [loading, setLoading] = useState(false);
 
   const fetchCart = useCallback(async () => {
-    if (!token) { setCart([]); return; }
+    if (!user) { setCart([]); return; }
     setLoading(true);
     try {
-      const res = await fetch('/api/cart', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setCart(Array.isArray(data) ? data : []);
-      } else {
-        setCart([]);
-      }
+      const { data, error } = await supabase
+        .from('cart')
+        .select('*, menu_items(*)')
+        .eq('user_id', user.id);
+      
+      if (error) throw error;
+      setCart(data || []);
     } catch (err) {
       console.error('Cart fetch error:', err);
       setCart([]);
     } finally {
       setLoading(false);
     }
-  }, [token]);
+  }, [user]);
 
   useEffect(() => {
     if (user) fetchCart();
@@ -62,46 +61,44 @@ export function CartProvider({ children }: { children: ReactNode }) {
   }, [user, fetchCart]);
 
   const addToCart = async (menuItemId: number) => {
-    if (!token) return;
-    const res = await fetch('/api/cart', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ menu_item_id: menuItemId }),
-    });
-    if (!res.ok) {
-      const data = await res.json();
-      throw new Error(data.error || 'Failed to add to cart');
+    if (!user) return;
+    
+    // Check if item already exists
+    const existing = cart.find(i => i.menu_item_id === menuItemId);
+    if (existing) {
+      await updateQuantity(existing.id, existing.quantity + 1);
+      return;
     }
+
+    const { error } = await supabase.from('cart').insert({
+      user_id: user.id,
+      menu_item_id: menuItemId,
+      quantity: 1
+    });
+
+    if (error) throw error;
     await fetchCart();
   };
 
   const updateQuantity = async (id: number, quantity: number) => {
-    if (!token) return;
-    await fetch('/api/cart', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ id, quantity }),
-    });
+    if (!user) return;
+    if (quantity <= 0) {
+      await removeItem(id);
+      return;
+    }
+    await supabase.from('cart').update({ quantity }).eq('id', id);
     await fetchCart();
   };
 
   const removeItem = async (id: number) => {
-    if (!token) return;
-    await fetch('/api/cart', {
-      method: 'DELETE',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ id }),
-    });
+    if (!user) return;
+    await supabase.from('cart').delete().eq('id', id);
     await fetchCart();
   };
 
   const clearCart = async () => {
-    if (!token) return;
-    await fetch('/api/cart', {
-      method: 'DELETE',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({}),
-    });
+    if (!user) return;
+    await supabase.from('cart').delete().eq('user_id', user.id);
     setCart([]);
   };
 

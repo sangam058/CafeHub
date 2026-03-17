@@ -4,6 +4,7 @@ import { Search } from 'lucide-react';
 import MenuCard from '../components/MenuCard';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { useAuth } from '../context/AuthContext';
+import { supabase } from '../supabase';
 
 interface MenuItem {
   id: number;
@@ -32,10 +33,13 @@ export default function Menu() {
   const fetchItems = async () => {
     setLoading(true);
     try {
-      const url = category !== 'All' ? `/api/menu?category=${category}` : '/api/menu';
-      const res = await fetch(url);
-      const data = await res.json();
-      setItems(data);
+      let query = supabase.from('menu_items').select('*').order('category').order('name');
+      if (category !== 'All') {
+        query = query.eq('category', category);
+      }
+      const { data, error } = await query;
+      if (error) throw error;
+      setItems(data || []);
     } catch (err) { console.error(err); }
     setLoading(false);
   };
@@ -63,26 +67,43 @@ export default function Menu() {
 
   const handleDelete = async (id: number) => {
     if (!confirm('Delete this item?')) return;
-    const token = localStorage.getItem('cafehub_token');
-    await fetch('/api/menu', { method: 'DELETE', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ id }) });
-    fetchItems();
+    try {
+      const { error } = await supabase.from('menu_items').delete().eq('id', id);
+      if (error) throw error;
+      fetchItems();
+    } catch (err: any) {
+      alert(err.message);
+    }
   };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
     setMsg('');
-    const token = localStorage.getItem('cafehub_token');
-    const method = editItem ? 'PUT' : 'POST';
-    const body = editItem ? { ...form, id: editItem.id, price: parseFloat(form.price) } : { ...form, price: parseFloat(form.price) };
-    const res = await fetch('/api/menu', { method, headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify(body) });
-    const data = await res.json();
-    if (res.ok) {
+    try {
+      const payload = { 
+        name: form.name, 
+        description: form.description, 
+        category: form.category, 
+        price: parseFloat(form.price), 
+        image_url: form.image_url, 
+        available: form.available 
+      };
+
+      let error;
+      if (editItem) {
+        ({ error } = await supabase.from('menu_items').update(payload).eq('id', editItem.id));
+      } else {
+        ({ error } = await supabase.from('menu_items').insert(payload));
+      }
+
+      if (error) throw error;
+
       setMsg('Saved successfully!');
       fetchItems();
       setTimeout(() => { setShowForm(false); setMsg(''); }, 1200);
-    } else {
-      setMsg(data.error || 'Failed to save');
+    } catch (err: any) {
+      setMsg(err.message || 'Failed to save');
     }
     setSaving(false);
   };
