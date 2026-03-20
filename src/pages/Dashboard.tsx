@@ -21,7 +21,7 @@ export default function Dashboard() {
       setLoading(true);
       try {
         const [ordRes, resRes] = await Promise.all([
-          supabase.from('orders').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
+          supabase.from('orders').select('*, order_items(*, menu_items(*))').eq('user_id', user.id).order('created_at', { ascending: false }),
           supabase.from('reservations').select('*').eq('user_id', user.id).order('created_at', { ascending: false })
         ]);
         
@@ -157,32 +157,31 @@ export default function Dashboard() {
                 <p className="text-amber-400/60">No orders yet. <Link to="/menu" className="text-amber-400 hover:underline">Browse menu</Link></p>
               </div>
             ) : orders.map(order => {
-              const items = typeof order.items === 'string' ? JSON.parse(order.items) : order.items;
               return (
                 <div key={order.id} className="bg-[#2a1500] border border-amber-900/30 rounded-2xl p-5">
                   <div className="flex items-start justify-between mb-3">
                     <div>
-                      <p className="text-amber-100 font-bold">Order #{order.id}</p>
+                      <p className="text-amber-100 font-bold">Order #{order.id.slice(0,8)}</p>
                       <p className="text-amber-600 text-xs">{new Date(order.created_at).toLocaleString()}</p>
                     </div>
                     <div className="text-right">
                       <p className="text-amber-400 font-black text-lg">₹{parseFloat(order.total_amount).toFixed(0)}</p>
                       <span className={`text-xs px-2 py-0.5 rounded-full ${
-                        order.status === 'paid' ? 'bg-green-500/20 text-green-400' : 'bg-amber-500/20 text-amber-400'
+                        order.payment_status === 'paid' ? 'bg-green-500/20 text-green-400' : 'bg-amber-500/20 text-amber-400'
                       }`}>{order.status}</span>
                     </div>
                   </div>
                   <div className="space-y-1.5">
-                    {items?.map((item: any, i: number) => (
+                    {order.order_items?.map((item: any, i: number) => (
                       <div key={i} className="flex justify-between text-sm">
-                        <span className="text-amber-200/70">{item.name} ×{item.quantity}</span>
-                        <span className="text-amber-400">₹{item.price * item.quantity}</span>
+                        <span className="text-amber-200/70">{item.menu_items?.name} ×{item.quantity}</span>
+                        <span className="text-amber-400">₹{(item.price_at_time * item.quantity).toFixed(0)}</span>
                       </div>
                     ))}
                   </div>
                   {(order.discount_applied > 0 || order.points_earned > 0) && (
                     <div className="mt-3 pt-3 border-t border-amber-900/30 flex gap-4 text-xs">
-                      {order.discount_applied > 0 && <span className="text-green-400">-₹{order.discount_applied} discount</span>}
+                      {order.discount_applied > 0 && <span className="text-green-400">-₹{parseFloat(order.discount_applied).toFixed(0)} discount</span>}
                       {order.points_earned > 0 && <span className="text-amber-400">+{order.points_earned} pts earned</span>}
                     </div>
                   )}

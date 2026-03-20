@@ -33,7 +33,11 @@ export default function Cart() {
           user_id: user?.id,
           total_amount: finalTotal,
           status: 'completed',
-          payment_status: 'paid'
+          payment_status: 'paid',
+          payment_id: paymentId,
+          discount_applied: discount,
+          points_earned: pointsToEarn,
+          points_redeemed: pointsToRedeem
         })
         .select()
         .single();
@@ -53,15 +57,6 @@ export default function Cart() {
         .insert(orderItems);
 
       if (itemsError) throw itemsError;
-
-      // 3. Insert payment record (if you have a payments table, we'll assume it for professional level)
-      await supabase.from('payments').insert({
-        order_id: orderData.id,
-        amount: finalTotal,
-        payment_method: 'online',
-        transaction_id: paymentId,
-        status: 'success'
-      });
 
       return true;
     } catch (err) {

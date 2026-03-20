@@ -31,7 +31,7 @@ export default function Admin() {
     try {
       const [{ data: usersData }, { data: ordersData }, { data: resData }, { data: revData }] = await Promise.all([
         supabase.from('users').select('*'),
-        supabase.from('orders').select('*, users(name, email)').order('created_at', { ascending: false }),
+        supabase.from('orders').select('*, users(name, email), order_items(*, menu_items(name))').order('created_at', { ascending: false }),
         supabase.from('reservations').select('*').order('created_at', { ascending: false }),
         supabase.from('reviews').select('*').order('created_at', { ascending: false })
       ]);
@@ -57,7 +57,7 @@ export default function Admin() {
           totalReservations: resData.length,
           totalReviews: revData.length,
           avgRating,
-          totalPointsRedeemed: 0 // Will handle this later with dedicated table
+          totalPointsRedeemed: ordersData.reduce((sum, o) => sum + (o.points_redeemed || 0), 0)
         });
       }
     } catch (err) {
@@ -173,9 +173,12 @@ export default function Admin() {
                       }`}>{order.status} ({order.payment_status})</span>
                     </div>
                   </div>
-                  <div className="text-sm text-amber-400/60 italics">
-                    Relational order items view enabled
+                  <div className="space-y-1 text-sm text-amber-400/80">
+                    {order.order_items?.map((item: any, i: number) => (
+                      <p key={i}>{item.menu_items?.name} ×{item.quantity}</p>
+                    ))}
                   </div>
+                  {order.discount_applied > 0 && <p className="text-xs text-green-500 mt-2">Discount: -₹{parseFloat(order.discount_applied).toFixed(0)} ({order.points_redeemed} pts)</p>}
                   {order.payment_id && <p className="text-xs text-amber-700 mt-1">Payment: {order.payment_id}</p>}
                 </div>
               );
@@ -255,9 +258,9 @@ export default function Admin() {
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">
-                      <p className="text-amber-100 font-bold">{r.user_name}</p>
-                      <StarRating rating={r.rating} size={14} />
-                    </div>
+                       <p className="text-amber-100 font-bold">{r.full_name}</p>
+                       <StarRating rating={r.rating} size={14} />
+                     </div>
                     <p className="text-amber-200/70 text-sm">{r.comment}</p>
                     <p className="text-amber-600 text-xs mt-2">{new Date(r.created_at).toLocaleString()}</p>
                   </div>

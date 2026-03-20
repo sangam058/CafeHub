@@ -48,6 +48,10 @@ CREATE TABLE orders (
   total_amount numeric(10,2) NOT NULL,
   status text DEFAULT 'pending', -- 'pending', 'processing', 'completed', 'cancelled'
   payment_status text DEFAULT 'pending', -- 'pending', 'paid', 'failed'
+  payment_id text,
+  discount_applied numeric(10,2) DEFAULT 0,
+  points_earned integer DEFAULT 0,
+  points_redeemed integer DEFAULT 0,
   created_at timestamptz DEFAULT now()
 );
 
@@ -64,9 +68,12 @@ CREATE TABLE order_items (
 CREATE TABLE reservations (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id uuid REFERENCES users(id) ON DELETE CASCADE,
-  reservation_date date NOT NULL,
-  reservation_time time NOT NULL,
-  party_size integer NOT NULL,
+  name text NOT NULL,
+  email text NOT NULL,
+  phone text NOT NULL,
+  date date NOT NULL,
+  time time NOT NULL,
+  guests integer NOT NULL,
   status text DEFAULT 'pending', -- 'pending', 'confirmed', 'cancelled'
   created_at timestamptz DEFAULT now()
 );
@@ -75,7 +82,7 @@ CREATE TABLE reservations (
 CREATE TABLE reviews (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id uuid REFERENCES users(id) ON DELETE SET NULL,
-  user_name text NOT NULL,
+  full_name text NOT NULL,
   rating integer CHECK (rating >= 1 AND rating <= 5),
   comment text,
   created_at timestamptz DEFAULT now()

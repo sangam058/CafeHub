@@ -10,7 +10,7 @@ import { FALLBACK_MENU } from '../data/fallbackMenu';
 
 interface Review {
   id: number;
-  user_name: string;
+  full_name: string;
   rating: number;
   comment: string;
   created_at: string;
@@ -69,7 +69,7 @@ export default function Home() {
     try {
       const { error: err } = await supabase.from('reviews').insert({
         ...reviewForm,
-        user_name: user?.name || 'Guest',
+        full_name: user?.name || 'Guest',
         user_id: user?.id
       });
 
@@ -158,7 +158,9 @@ export default function Home() {
           {featured.map((item, i) => (
             <motion.div key={item.id} variants={fadeUp} initial="hidden" whileInView="visible" viewport={{ once: true }} transition={{ delay: i * 0.1 }}
               className="bg-[#2a1500] border border-amber-900/30 rounded-2xl overflow-hidden hover:border-amber-500/40 transition-colors">
-              <img src={item.image_url} alt={item.name} className="w-full h-40 object-cover" />
+              <div className="aspect-[4/3] overflow-hidden">
+                <img src={item.image_url} alt={item.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+              </div>
               <div className="p-4">
                 <span className="text-xs text-amber-500 font-semibold">{item.category}</span>
                 <h3 className="font-bold text-amber-100 mt-1">{item.name}</h3>
@@ -217,10 +219,10 @@ export default function Home() {
               <p className="text-amber-200/80 text-sm mt-3 leading-relaxed italic">"{r.comment}"</p>
               <div className="mt-4 flex items-center gap-2">
                 <div className="w-8 h-8 bg-amber-500/30 rounded-full flex items-center justify-center text-amber-400 font-bold text-sm">
-                  {r.user_name[0]}
+                  {r.full_name ? r.full_name[0] : 'G'}
                 </div>
                 <div>
-                  <p className="text-amber-300 text-sm font-semibold">{r.user_name}</p>
+                  <p className="text-amber-300 text-sm font-semibold">{r.full_name}</p>
                   <p className="text-amber-600 text-xs">{new Date(r.created_at).toLocaleDateString()}</p>
                 </div>
               </div>
