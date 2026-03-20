@@ -119,7 +119,9 @@ CREATE TRIGGER on_auth_user_created
 -- INITIAL SEED DATA
 -- ============================================
 
--- 1. SEED MENU ITEMS
+-- 1. SEED MENU ITEMS (Clean slate first)
+DELETE FROM menu_items;
+
 INSERT INTO menu_items (id, name, description, category, price, image_url) VALUES
 ('550e8400-e29b-41d4-a716-446655440001', 'Espresso',        'Rich, bold single-shot espresso',              'Coffee',  120.00, 'https://images.pexels.com/photos/312418/pexels-photo-312418.jpeg?auto=compress&cs=tinysrgb&w=400'),
 ('550e8400-e29b-41d4-a716-446655440002', 'Cappuccino',      'Classic Italian cappuccino with foam',           'Coffee',  180.00, 'https://images.pexels.com/photos/350478/pexels-photo-350478.jpeg?auto=compress&cs=tinysrgb&w=400'),
