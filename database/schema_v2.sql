@@ -3,12 +3,13 @@
 -- ============================================
 
 -- CLEAN SLATE (Optional: run these if you want to wipe everything first)
--- DROP TABLE IF EXISTS order_items CASCADE;
--- DROP TABLE IF EXISTS orders CASCADE;
--- DROP TABLE IF EXISTS reservations CASCADE;
--- DROP TABLE IF EXISTS reviews CASCADE;
--- DROP TABLE IF EXISTS menu_items CASCADE;
--- DROP TABLE IF EXISTS users CASCADE;
+DROP TABLE IF EXISTS cart CASCADE;
+DROP TABLE IF EXISTS order_items CASCADE;
+DROP TABLE IF EXISTS orders CASCADE;
+DROP TABLE IF EXISTS reservations CASCADE;
+DROP TABLE IF EXISTS reviews CASCADE;
+DROP TABLE IF EXISTS menu_items CASCADE;
+DROP TABLE IF EXISTS users CASCADE;
 
 -- 1. USERS (Synced with Supabase Auth)
 CREATE TABLE users (
