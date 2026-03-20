@@ -145,6 +145,8 @@ INSERT INTO menu_items (id, name, description, category, price, image_url) VALUE
 
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Users can view their own data" ON users FOR SELECT USING (auth.uid() = id);
+CREATE POLICY "Users can create their own data" ON users FOR INSERT WITH CHECK (auth.uid() = id);
+CREATE POLICY "Users can update their own data" ON users FOR UPDATE USING (auth.uid() = id);
 CREATE POLICY "Admins can view all users" ON users FOR SELECT USING (
   EXISTS (SELECT 1 FROM users WHERE users.id = auth.uid() AND users.role = 'admin')
 );
