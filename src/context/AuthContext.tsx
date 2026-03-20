@@ -41,20 +41,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           .single();
           
         if (userData) {
+          const isAdmin = userData.email === 'aman@gmail.com';
           setUser({
             id: userData.id,
             name: userData.name,
             email: userData.email,
-            role: userData.role || 'customer',
+            role: isAdmin ? 'admin' : (userData.role || 'customer'),
             loyalty_points: userData.loyalty_points || 0
           });
         } else {
           // Fallback if trigger hasn't finished yet
+          const isAdmin = currentSession.user.email === 'aman@gmail.com';
           setUser({
             id: currentSession.user.id,
             name: currentSession.user.user_metadata?.full_name || 'Customer',
             email: currentSession.user.email || '',
-            role: 'customer',
+            role: isAdmin ? 'admin' : 'customer',
             loyalty_points: 0
           });
         }
