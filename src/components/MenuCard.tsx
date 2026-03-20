@@ -105,24 +105,9 @@ export default function MenuCard({ item, onEdit, onDelete, isAdmin }: MenuCardPr
       <div className="p-4">
         <h3 className="font-bold text-amber-100 text-lg leading-tight">{item.name}</h3>
         <p className="text-amber-400/60 text-sm mt-1 line-clamp-2">{item.description}</p>
-        <div className="flex items-center justify-between mt-4">
-          <span className="text-xl font-bold text-amber-400">₹{item.price}</span>
-          {isAdmin ? (
-            <div className="flex gap-2">
-              <button
-                onClick={() => onEdit?.(item)}
-                className="px-3 py-1.5 bg-amber-500/20 text-amber-300 text-sm rounded-lg hover:bg-amber-500/30 transition-colors"
-              >
-                Edit
-              </button>
-              <button
-                onClick={() => onDelete?.(item.id)}
-                className="px-3 py-1.5 bg-red-500/20 text-red-300 text-sm rounded-lg hover:bg-red-500/30 transition-colors"
-              >
-                Delete
-              </button>
-            </div>
-          ) : (
+        <div className="flex flex-col gap-3 mt-4">
+          <div className="flex items-center justify-between">
+            <span className="text-xl font-bold text-amber-400">₹{item.price}</span>
             <motion.button
               onClick={handleAddToCart}
               disabled={!item.available || status === 'loading'}
@@ -145,6 +130,23 @@ export default function MenuCard({ item, onEdit, onDelete, isAdmin }: MenuCardPr
                 <><Plus size={15} /> Add to Cart</>
               )}
             </motion.button>
+          </div>
+          
+          {isAdmin && (
+            <div className="flex gap-2 pt-2 border-t border-amber-900/20">
+              <button
+                onClick={() => onEdit?.(item)}
+                className="flex-1 py-1.5 bg-amber-500/10 text-amber-500 text-xs font-bold rounded-lg hover:bg-amber-500/20 transition-colors border border-amber-500/20"
+              >
+                Edit Item
+              </button>
+              <button
+                onClick={() => onDelete?.(item.id)}
+                className="flex-1 py-1.5 bg-red-500/10 text-red-400 text-xs font-bold rounded-lg hover:bg-red-500/20 transition-colors border border-red-500/20"
+              >
+                Delete
+              </button>
+            </div>
           )}
         </div>
       </div>
