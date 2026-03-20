@@ -50,15 +50,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             loyalty_points: userData.loyalty_points || 0
           });
         } else {
-          // Fallback if trigger hasn't finished yet
+          // AUTO-CREATE record if missing (Resolves cart_user_id_fkey once and for all)
           const isAdmin = currentSession.user.email === 'aman@gmail.com';
-          setUser({
+          const newProfile = {
             id: currentSession.user.id,
             name: currentSession.user.user_metadata?.full_name || 'Customer',
             email: currentSession.user.email || '',
             role: isAdmin ? 'admin' : 'customer',
             loyalty_points: 0
+          };
+          
+          // Silently try to create the record in the background
+          supabase.from('users').upsert(newProfile).then(({ error }) => {
+            if (error) console.error('Auto-profile creation failed:', error);
           });
+
+          setUser(newProfile);
         }
       } else {
         setUser(null);
