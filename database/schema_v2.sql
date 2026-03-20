@@ -152,4 +152,38 @@ CREATE POLICY "Admins can manage menu" ON menu_items FOR ALL USING (
   EXISTS (SELECT 1 FROM users WHERE users.id = auth.uid() AND users.role = 'admin')
 );
 
--- (Policies for orders, reviews etc. would follow similar logic)
+-- 3. CART POLICIES
+ALTER TABLE cart ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users can manage their own cart" ON cart FOR ALL USING (auth.uid() = user_id);
+
+-- 4. ORDERS POLICIES
+ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users can view their own orders" ON orders FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Admins can manage all orders" ON orders FOR ALL USING (
+  EXISTS (SELECT 1 FROM users WHERE users.id = auth.uid() AND users.role = 'admin')
+);
+
+-- 5. ORDER ITEMS POLICIES
+ALTER TABLE order_items ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users can view their own order items" ON order_items FOR SELECT USING (
+  EXISTS (SELECT 1 FROM orders WHERE orders.id = order_items.order_id AND orders.user_id = auth.uid())
+);
+CREATE POLICY "Admins can manage all order items" ON order_items FOR ALL USING (
+  EXISTS (SELECT 1 FROM users WHERE users.id = auth.uid() AND users.role = 'admin')
+);
+
+-- 6. RESERVATIONS POLICIES
+ALTER TABLE reservations ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users can view their own reservations" ON reservations FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can create reservations" ON reservations FOR INSERT WITH CHECK (true);
+CREATE POLICY "Admins can manage all reservations" ON reservations FOR ALL USING (
+  EXISTS (SELECT 1 FROM users WHERE users.id = auth.uid() AND users.role = 'admin')
+);
+
+-- 7. REVIEWS POLICIES
+ALTER TABLE reviews ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Public can view reviews" ON reviews FOR SELECT USING (true);
+CREATE POLICY "Authenticated can create reviews" ON reviews FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Admins can manage reviews" ON reviews FOR ALL USING (
+  EXISTS (SELECT 1 FROM users WHERE users.id = auth.uid() AND users.role = 'admin')
+);
