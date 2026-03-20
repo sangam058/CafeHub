@@ -20,15 +20,6 @@ CREATE TABLE users (
   created_at timestamptz DEFAULT now()
 );
 
--- 1b. CART (Added for persistence)
-CREATE TABLE cart (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id uuid REFERENCES users(id) ON DELETE CASCADE,
-  menu_item_id uuid REFERENCES menu_items(id) ON DELETE CASCADE,
-  quantity integer DEFAULT 1,
-  created_at timestamptz DEFAULT now()
-);
-
 -- 2. MENU ITEMS
 CREATE TABLE menu_items (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -38,6 +29,15 @@ CREATE TABLE menu_items (
   price numeric(10,2) NOT NULL,
   image_url text,
   available boolean DEFAULT true,
+  created_at timestamptz DEFAULT now()
+);
+
+-- 1b. CART (Added for persistence)
+CREATE TABLE cart (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid REFERENCES users(id) ON DELETE CASCADE,
+  menu_item_id uuid REFERENCES menu_items(id) ON DELETE CASCADE,
+  quantity integer DEFAULT 1,
   created_at timestamptz DEFAULT now()
 );
 
