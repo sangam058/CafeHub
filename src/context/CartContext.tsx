@@ -63,21 +63,39 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const addToCart = async (menuItemId: string) => {
     if (!user) return;
     
-    // Check if item already exists
-    const existing = cart.find(i => i.menu_item_id === menuItemId);
-    if (existing) {
-      await updateQuantity(existing.id, existing.quantity + 1);
-      return;
+    try {
+      // 1. Double check database for existing item (more reliable than local state for race conditions)
+      const { data: existing, error: fetchError } = await supabase
+        .from('cart')
+        .select('id, quantity')
+        .eq('user_id', user.id)
+        .eq('menu_item_id', menuItemId)
+        .maybeSingle();
+
+      if (fetchError) throw fetchError;
+
+      if (existing) {
+        // 2. Update existing
+        const { error: updateError } = await supabase
+          .from('cart')
+          .update({ quantity: existing.quantity + 1 })
+          .eq('id', existing.id);
+        if (updateError) throw updateError;
+      } else {
+        // 3. Insert new
+        const { error: insertError } = await supabase.from('cart').insert({
+          user_id: user.id,
+          menu_item_id: menuItemId,
+          quantity: 1
+        });
+        if (insertError) throw insertError;
+      }
+
+      await fetchCart();
+    } catch (err) {
+      console.error('Add to cart error:', err);
+      throw err;
     }
-
-    const { error } = await supabase.from('cart').insert({
-      user_id: user.id,
-      menu_item_id: menuItemId,
-      quantity: 1
-    });
-
-    if (error) throw error;
-    await fetchCart();
   };
 
   const updateQuantity = async (id: string, quantity: number) => {
