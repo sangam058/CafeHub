@@ -99,6 +99,19 @@ export default function Cart() {
 
   if (loading) return <div className="pt-20"><LoadingSpinner /></div>;
 
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-[#0f0600] pt-32 text-center px-4">
+        <ShoppingCart size={64} className="text-amber-900 mx-auto mb-4 opacity-20" />
+        <h2 className="text-2xl font-bold text-amber-100 mb-2">Please log in</h2>
+        <p className="text-amber-400/60 mb-8 max-w-xs mx-auto">You need to be logged in to view your shopping cart and place orders.</p>
+        <Link to="/login" className="px-8 py-3 bg-amber-500 text-[#1a0a00] font-bold rounded-xl hover:bg-amber-400 transition-colors inline-block">
+          Go to Login
+        </Link>
+      </div>
+    );
+  }
+
   // Payment success screen
   if (paymentSuccess) {
     return (
