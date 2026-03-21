@@ -21,25 +21,26 @@ CREATE TABLE users (
   created_at timestamptz DEFAULT now()
 );
 
--- 2. MENU ITEMS
+-- 1a. MENU_ITEMS
 CREATE TABLE menu_items (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   name text NOT NULL,
   description text,
   category text NOT NULL, -- 'Coffee', 'Snacks', 'Dessert'
-  price numeric(10,2) NOT NULL,
+  price numeric NOT NULL,
   image_url text,
   available boolean DEFAULT true,
   created_at timestamptz DEFAULT now()
 );
 
--- 1b. CART (Fixed references to allow relational selection in frontend)
+-- 1b. CART (Relational integrity for joins)
 CREATE TABLE cart (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id uuid REFERENCES users(id) ON DELETE CASCADE,
   menu_item_id uuid REFERENCES menu_items(id) ON DELETE CASCADE,
   quantity integer DEFAULT 1,
-  created_at timestamptz DEFAULT now()
+  created_at timestamptz DEFAULT now(),
+  UNIQUE(user_id, menu_item_id)
 );
 
 -- 3. ORDERS
@@ -173,6 +174,18 @@ UPDATE public.users SET role = 'admin' WHERE email = 'aman@gmail.com';
 -- 9. ROW LEVEL SECURITY (RLS)
 -- ============================================
 
+-- Function to check if current user is admin (prevents RLS recursion)
+CREATE OR REPLACE FUNCTION public.is_admin()
+RETURNS boolean AS $$
+BEGIN
+  RETURN (
+    SELECT (role = 'admin')
+    FROM public.users
+    WHERE id = auth.uid()
+  );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
 -- Enable RLS on all tables
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE menu_items ENABLE ROW LEVEL SECURITY;
@@ -185,15 +198,11 @@ ALTER TABLE reviews ENABLE ROW LEVEL SECURITY;
 -- USERS: Users can see and edit their own profile. Admins see all.
 CREATE POLICY "Users can view own profile" ON users FOR SELECT USING (auth.uid() = id);
 CREATE POLICY "Users can update own profile" ON users FOR UPDATE USING (auth.uid() = id);
-CREATE POLICY "Admins have full access to users" ON users FOR ALL USING (
-  EXISTS (SELECT 1 FROM users WHERE id = auth.uid() AND role = 'admin')
-);
+CREATE POLICY "Admins have full access to users" ON users FOR ALL USING (is_admin());
 
 -- MENU ITEMS: Everyone can view. Only Admins can modify.
 CREATE POLICY "Anyone can view menu items" ON menu_items FOR SELECT USING (true);
-CREATE POLICY "Admins can manage menu items" ON menu_items FOR ALL USING (
-  EXISTS (SELECT 1 FROM users WHERE id = auth.uid() AND role = 'admin')
-);
+CREATE POLICY "Admins can manage menu items" ON menu_items FOR ALL USING (is_admin());
 
 -- CART: Users can manage their own cart.
 DROP POLICY IF EXISTS "Users can manage own cart" ON cart;
@@ -206,25 +215,23 @@ WITH CHECK (auth.uid() = user_id);
 -- ORDERS: Users can see own orders. Admins can see/update all.
 CREATE POLICY "Users can view own orders" ON orders FOR SELECT USING (auth.uid() = user_id);
 CREATE POLICY "Users can insert own orders" ON orders FOR INSERT WITH CHECK (auth.uid() = user_id);
-CREATE POLICY "Admins can manage all orders" ON orders FOR ALL USING (
-  EXISTS (SELECT 1 FROM users WHERE id = auth.uid() AND role = 'admin')
-);
+CREATE POLICY "Admins can manage all orders" ON orders FOR ALL USING (is_admin());
 
--- ORDER ITEMS: Users can see items of their own orders.
+-- ORDER ITEMS: Users can see items of their own orders. Admins can manage all.
 CREATE POLICY "Users can view own order items" ON order_items FOR SELECT USING (
   EXISTS (SELECT 1 FROM orders WHERE id = order_id AND user_id = auth.uid())
 );
 CREATE POLICY "Users can insert order items" ON order_items FOR INSERT WITH CHECK (
   EXISTS (SELECT 1 FROM orders WHERE id = order_id AND user_id = auth.uid())
 );
+CREATE POLICY "Admins can manage order items" ON order_items FOR ALL USING (is_admin());
 
 -- RESERVATIONS: Users manage own. Admins manage all.
 CREATE POLICY "Users can manage own reservations" ON reservations FOR ALL USING (auth.uid() = user_id);
-CREATE POLICY "Admins can manage all reservations" ON reservations FOR ALL USING (
-  EXISTS (SELECT 1 FROM users WHERE id = auth.uid() AND role = 'admin')
-);
+CREATE POLICY "Admins can manage all reservations" ON reservations FOR ALL USING (is_admin());
 
--- REVIEWS: Anyone can view. Users can create own.
+-- REVIEWS: Anyone can view. Users can create own. Admins can moderate.
 CREATE POLICY "Anyone can view reviews" ON reviews FOR SELECT USING (true);
 CREATE POLICY "Users can insert own reviews" ON reviews FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Admins can moderate reviews" ON reviews FOR ALL USING (is_admin());
 

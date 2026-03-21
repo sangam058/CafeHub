@@ -36,7 +36,7 @@ export default function Dashboard() {
   }, [user, token]);
 
   const success = searchParams.get('success');
-  const totalSpent = orders.filter(o => o.status === 'paid').reduce((s, o) => s + parseFloat(o.total_amount), 0);
+  const totalSpent = orders.filter(o => o.payment_status === 'paid').reduce((s, o) => s + parseFloat(o.total_amount), 0);
   const pointsToNextReward = 100 - (user?.loyalty_points || 0) % 100;
 
   const tabs = [
