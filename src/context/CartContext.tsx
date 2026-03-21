@@ -51,48 +51,57 @@ export function CartProvider({ children }: { children: ReactNode }) {
     console.log("Fetching cart for UUID:", authUser.id);
     
     try {
-      const { data, error } = await supabase
+      // 1. Fetch raw cart items for this user
+      const { data: cartData, error: cartError } = await supabase
         .from('cart')
-        .select(`
-          id,
-          quantity,
-          menu_item_id,
-          menu_items (
-            id,
-            name,
-            description,
-            price,
-            image_url,
-            category
-          )
-        `)
+        .select('*')
         .eq('user_id', authUser.id);
       
-      if (error) {
-        console.error('Supabase cart error:', error);
-        throw error;
+      if (cartError) {
+        console.error('Raw cart fetch error:', cartError);
+        throw cartError;
       }
-      
-      // 2. Map data carefully (Handle cases where menu_items might be returned as an array or object)
-      const formattedData = (data || []).map((item: any) => {
-        const menuItem = Array.isArray(item.menu_items) ? item.menu_items[0] : item.menu_items;
+
+      if (!cartData || cartData.length === 0) {
+        console.log("Database returned 0 items in cart for user:", authUser.id);
+        setCart([]);
+        setLoading(false);
+        return;
+      }
+
+      console.log("Raw cart data from DB:", cartData);
+
+      // 2. Fetch all menu items referenced in the cart to avoid join issues
+      const itemIds = cartData.map(c => c.menu_item_id);
+      const { data: menuData, error: menuError } = await supabase
+        .from('menu_items')
+        .select('*')
+        .in('id', itemIds);
+
+      if (menuError) {
+        console.warn('Menu items fetch failed (join fallback):', menuError);
+      }
+
+      // 3. Fail-safe Join: Combine them in JavaScript
+      const formattedData = cartData.map(item => {
+        const menuItem = menuData?.find(m => m.id === item.menu_item_id);
         return {
           ...item,
           menu_items: menuItem || {
             id: item.menu_item_id,
-            name: 'Unknown Item',
+            name: 'Item from Menu', // Fallback name
             price: 0,
             image_url: '',
-            category: 'Uncategorized',
-            description: ''
+            category: 'Category',
+            description: 'Item details being synchronized...'
           }
         };
       });
 
-      console.log("Final formatted cart:", formattedData);
+      console.log("Final joined cart (JS-side join):", formattedData);
       setCart(formattedData as CartItem[]);
     } catch (err) {
-      console.error('Fetch cart failed:', err);
+      console.error('Cart fetch failed completely:', err);
       setCart([]);
     } finally {
       setLoading(false);
