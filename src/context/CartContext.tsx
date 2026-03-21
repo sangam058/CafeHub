@@ -37,9 +37,19 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(false);
 
   const fetchCart = useCallback(async () => {
-    if (!user) { setCart([]); return; }
+    // 1. Get user directly from Supabase to ensure fresh session
+    const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
+    
+    if (authError || !authUser) {
+      console.log("No auth user found in fetchCart");
+      setCart([]);
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
-    console.log("Fetching cart for user:", user.id);
+    console.log("Fetching cart for UUID:", authUser.id);
+    
     try {
       const { data, error } = await supabase
         .from('cart')
@@ -56,68 +66,79 @@ export function CartProvider({ children }: { children: ReactNode }) {
             category
           )
         `)
-        .eq('user_id', user.id);
+        .eq('user_id', authUser.id);
       
       if (error) {
-        console.error('Cart fetch error:', error);
+        console.error('Supabase cart error:', error);
         throw error;
       }
       
-      // Map to ensure menu_items is a single object (Supabase sometimes returns an array for joins)
-      const formattedData = (data || []).map((item: any) => ({
-        ...item,
-        menu_items: Array.isArray(item.menu_items) ? item.menu_items[0] : item.menu_items
-      }));
+      // 2. Map data carefully (Handle cases where menu_items might be returned as an array or object)
+      const formattedData = (data || []).map((item: any) => {
+        const menuItem = Array.isArray(item.menu_items) ? item.menu_items[0] : item.menu_items;
+        return {
+          ...item,
+          menu_items: menuItem || {
+            id: item.menu_item_id,
+            name: 'Unknown Item',
+            price: 0,
+            image_url: '',
+            category: 'Uncategorized',
+            description: ''
+          }
+        };
+      });
 
-      console.log("Cart data received:", formattedData);
+      console.log("Final formatted cart:", formattedData);
       setCart(formattedData as CartItem[]);
     } catch (err) {
-      console.error('Cart fetch error caught:', err);
+      console.error('Fetch cart failed:', err);
       setCart([]);
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, []); // Remove user dependency, use direct getUser() instead
 
+  // Automatically fetch on mount and when user state changes in context
   useEffect(() => {
-    if (user) fetchCart();
-    else setCart([]);
-  }, [user, fetchCart]);
+    fetchCart();
+  }, [fetchCart, user?.id]);
 
   const addToCart = async (menuItemId: string) => {
-    if (!user) return;
-    
+    const { data: { user: authUser } } = await supabase.auth.getUser();
+    if (!authUser) {
+      alert("Please login to add items to cart");
+      return;
+    }
+
     try {
-      // 1. Double check database for existing item (more reliable than local state for race conditions)
+      // 1. Double check database for existing item
       const { data: existing, error: fetchError } = await supabase
         .from('cart')
         .select('id, quantity')
-        .eq('user_id', user.id)
+        .eq('user_id', authUser.id)
         .eq('menu_item_id', menuItemId)
         .maybeSingle();
 
       if (fetchError) throw fetchError;
 
       if (existing) {
-        // 2. Update existing
-        const { error: updateError } = await supabase
+        await supabase
           .from('cart')
-          .update({ quantity: existing.quantity + 1 })
+          .update({ quantity: existing.quantity + 1, updated_at: new Date().toISOString() })
           .eq('id', existing.id);
-        if (updateError) throw updateError;
       } else {
-        // 3. Insert new
-        const { error: insertError } = await supabase.from('cart').insert({
-          user_id: user.id,
+        await supabase.from('cart').insert({
+          user_id: authUser.id,
           menu_item_id: menuItemId,
           quantity: 1
         });
-        if (insertError) throw insertError;
       }
 
       await fetchCart();
     } catch (err) {
-      console.error('Add to cart error:', err);
+      console.error('Add to cart failed:', err);
+      alert("Could not add item. Ensure database is setup correctly.");
       throw err;
     }
   };
