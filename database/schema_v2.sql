@@ -33,11 +33,11 @@ CREATE TABLE menu_items (
   created_at timestamptz DEFAULT now()
 );
 
--- 1b. CART (Simplified to avoid blockers)
+-- 1b. CART (Fixed references to allow relational selection in frontend)
 CREATE TABLE cart (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id uuid, -- removed REFERENCES for resilience
-  menu_item_id uuid, -- removed REFERENCES for resilience
+  user_id uuid REFERENCES users(id) ON DELETE CASCADE,
+  menu_item_id uuid REFERENCES menu_items(id) ON DELETE CASCADE,
   quantity integer DEFAULT 1,
   created_at timestamptz DEFAULT now()
 );
@@ -196,7 +196,12 @@ CREATE POLICY "Admins can manage menu items" ON menu_items FOR ALL USING (
 );
 
 -- CART: Users can manage their own cart.
-CREATE POLICY "Users can manage own cart" ON cart FOR ALL USING (auth.uid() = user_id OR user_id IS NULL); -- Allow null if using session-based, but here we use auth.uid()
+DROP POLICY IF EXISTS "Users can manage own cart" ON cart;
+CREATE POLICY "Users can manage own cart"
+ON cart
+FOR ALL
+USING (auth.uid() = user_id)
+WITH CHECK (auth.uid() = user_id);
 
 -- ORDERS: Users can see own orders. Admins can see/update all.
 CREATE POLICY "Users can view own orders" ON orders FOR SELECT USING (auth.uid() = user_id);

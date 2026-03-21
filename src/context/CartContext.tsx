@@ -39,16 +39,40 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const fetchCart = useCallback(async () => {
     if (!user) { setCart([]); return; }
     setLoading(true);
+    console.log("Fetching cart for user:", user.id);
     try {
       const { data, error } = await supabase
         .from('cart')
-        .select('*, menu_items(*)')
+        .select(`
+          id,
+          quantity,
+          menu_item_id,
+          menu_items (
+            id,
+            name,
+            description,
+            price,
+            image_url,
+            category
+          )
+        `)
         .eq('user_id', user.id);
       
-      if (error) throw error;
-      setCart(data || []);
+      if (error) {
+        console.error('Cart fetch error:', error);
+        throw error;
+      }
+      
+      // Map to ensure menu_items is a single object (Supabase sometimes returns an array for joins)
+      const formattedData = (data || []).map((item: any) => ({
+        ...item,
+        menu_items: Array.isArray(item.menu_items) ? item.menu_items[0] : item.menu_items
+      }));
+
+      console.log("Cart data received:", formattedData);
+      setCart(formattedData as CartItem[]);
     } catch (err) {
-      console.error('Cart fetch error:', err);
+      console.error('Cart fetch error caught:', err);
       setCart([]);
     } finally {
       setLoading(false);
