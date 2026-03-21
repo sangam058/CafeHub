@@ -97,6 +97,7 @@ export default function Cart() {
     }
   };
 
+  console.log("Cart page rendering. Cart state:", cart);
   if (loading) return <div className="pt-20"><LoadingSpinner /></div>;
 
   if (!user) {
