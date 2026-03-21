@@ -65,34 +65,70 @@ export default function Cart() {
     }
   };
 
+  const loadRazorpay = () => {
+    return new Promise((resolve) => {
+      const script = document.createElement('script');
+      script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+      script.onload = () => resolve(true);
+      script.onerror = () => resolve(false);
+      document.body.appendChild(script);
+    });
+  };
+
   const handleCheckout = async () => {
     if (!user) { navigate('/login'); return; }
     if (cart.length === 0) return;
+    
     setProcessing(true);
     setMsg('');
 
     try {
-      // Demo mode: Simulate payment since API is legacy
-      // Show a brief "processing" delay for realism
-      await new Promise(r => setTimeout(r, 1200));
-      
-      const paymentId = 'pay_demo_' + Date.now();
-      
-      const ok = await saveOrder(paymentId);
-      if (ok) {
-        // Increment loyalty points for the user
-        const newPoints = (user.loyalty_points || 0) - pointsToRedeem + pointsToEarn;
-        await supabase.from('users').update({ loyalty_points: newPoints }).eq('id', user.id);
-        
-        await clearCart();
-        await refreshUser();
-        setPaymentSuccess(true);
-      } else {
-        setMsg('Order save failed. Please ensure database tables are setup.');
+      const res = await loadRazorpay();
+
+      if (!res) {
+        setMsg('Razorpay SDK failed to load. Are you online?');
+        setProcessing(false);
+        return;
       }
+
+      const options = {
+        key: import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_placeholder',
+        amount: Math.round(finalTotal * 100), // in paise
+        currency: 'INR',
+        name: 'CafeHub',
+        description: 'Quality Coffee & Snacks',
+        image: 'https://images.pexels.com/photos/312418/pexels-photo-312418.jpeg?auto=compress&cs=tinysrgb&w=200',
+        handler: async function (response: any) {
+          const ok = await saveOrder(response.razorpay_payment_id);
+          if (ok) {
+            const newPoints = (user.loyalty_points || 0) - pointsToRedeem + pointsToEarn;
+            await supabase.from('users').update({ loyalty_points: newPoints }).eq('id', user.id);
+            await clearCart();
+            await refreshUser();
+            setPaymentSuccess(true);
+          } else {
+            setMsg('Payment successful, but failed to save order to database. Please contact support.');
+          }
+          setProcessing(false);
+        },
+        prefill: {
+          name: user.name,
+          email: user.email,
+        },
+        theme: {
+          color: '#f59e0b',
+        },
+        modal: {
+          ondismiss: function() {
+            setProcessing(false);
+          }
+        }
+      };
+
+      const rzp = new (window as any).Razorpay(options);
+      rzp.open();
     } catch (err: any) {
       setMsg(err.message || 'Something went wrong. Please try again.');
-    } finally {
       setProcessing(false);
     }
   };
