@@ -121,16 +121,23 @@ CREATE TRIGGER on_auth_user_created
 -- INITIAL SEED DATA
 -- ============================================
 
--- 1. SEED MENU ITEMS (Clean slate first)
-DELETE FROM menu_items;
-
-INSERT INTO menu_items (id, name, description, category, price, image_url) VALUES
-('550e8400-e29b-41d4-a716-446655440001', 'Espresso',        'Rich, bold single-shot espresso',              'Coffee',  120.00, 'https://images.pexels.com/photos/312418/pexels-photo-312418.jpeg?auto=compress&cs=tinysrgb&w=400'),
-('550e8400-e29b-41d4-a716-446655440002', 'Cappuccino',      'Classic Italian cappuccino with foam',           'Coffee',  180.00, 'https://images.pexels.com/photos/350478/pexels-photo-350478.jpeg?auto=compress&cs=tinysrgb&w=400'),
-('550e8400-e29b-41d4-a716-446655440003', 'Caramel Latte',   'Smooth latte with caramel drizzle',             'Coffee',  220.00, 'https://images.pexels.com/photos/1193335/pexels-photo-1193335.jpeg?auto=compress&cs=tinysrgb&w=400'),
-('550e8400-e29b-41d4-a716-446655440004', 'Cold Brew',       'Slow-steeped cold brew coffee',                   'Coffee',  200.00, 'https://images.pexels.com/photos/4869332/pexels-photo-4869332.jpeg?auto=compress&cs=tinysrgb&w=400'),
-('550e8400-e29b-41d4-a716-446655440005', 'Avocado Toast',   'Sourdough with smashed avocado',                'Snacks',  280.00, 'https://images.pexels.com/photos/1351238/pexels-photo-1351238.jpeg?auto=compress&cs=tinysrgb&w=400'),
-('550e8400-e29b-41d4-a716-446655440006', 'Cheesecake',      'New York style cheesecake',                      'Dessert', 250.00, 'https://images.pexels.com/photos/1126359/pexels-photo-1126359.jpeg?auto=compress&cs=tinysrgb&w=400');
+-- 1. SEED MENU ITEMS (Ensuring a professional base set)
+-- We use UPSERT (ON CONFLICT) so we don't delete items the user added manually
+INSERT INTO menu_items (id, name, description, category, price, image_url, available) VALUES
+('550e8400-e29b-41d4-a716-446655440001', 'Espresso',        'Rich, bold single-shot espresso',              'Coffee',  120.00, 'https://images.pexels.com/photos/312418/pexels-photo-312418.jpeg?auto=compress&cs=tinysrgb&w=400', true),
+('550e8400-e29b-41d4-a716-446655440002', 'Cappuccino',      'Classic Italian cappuccino with foam',           'Coffee',  180.00, 'https://images.pexels.com/photos/350478/pexels-photo-350478.jpeg?auto=compress&cs=tinysrgb&w=400', true),
+('550e8400-e29b-41d4-a716-446655440003', 'Caramel Latte',   'Smooth latte with caramel drizzle',             'Coffee',  220.00, 'https://images.pexels.com/photos/1193335/pexels-photo-1193335.jpeg?auto=compress&cs=tinysrgb&w=400', true),
+('550e8400-e29b-41d4-a716-446655440004', 'Cold Brew',       'Slow-steeped cold brew coffee',                   'Coffee',  200.00, 'https://images.pexels.com/photos/4869332/pexels-photo-4869332.jpeg?auto=compress&cs=tinysrgb&w=400', true),
+('550e8400-e29b-41d4-a716-446655440005', 'Avocado Toast',   'Sourdough with smashed avocado',                'Snacks',  280.00, 'https://images.pexels.com/photos/1351238/pexels-photo-1351238.jpeg?auto=compress&cs=tinysrgb&w=400', true),
+('550e8400-e29b-41d4-a716-446655440006', 'Cheesecake',      'New York style cheesecake',                      'Dessert', 250.00, 'https://images.pexels.com/photos/1126359/pexels-photo-1126359.jpeg?auto=compress&cs=tinysrgb&w=400', true),
+('550e8400-e29b-41d4-a716-446655440007', 'Mocha',           'Rich chocolate and espresso blend',             'Coffee',  210.00, 'https://images.pexels.com/photos/1235706/pexels-photo-1235706.jpeg?auto=compress&cs=tinysrgb&w=400', true),
+('550e8400-e29b-41d4-a716-446655440008', 'Paneer Wrap',     'Spicy paneer with fresh veggies',              'Snacks',  190.00, 'https://images.pexels.com/photos/461198/pexels-photo-461198.jpeg?auto=compress&cs=tinysrgb&w=400', true),
+('550e8400-e29b-41d4-a716-446655440009', 'Brownie',         'Gooey chocolate brownie with walnuts',          'Dessert', 150.00, 'https://images.pexels.com/photos/45202/brownies-dessert-cake-sweet-45202.jpeg?auto=compress&cs=tinysrgb&w=400', true),
+('550e8400-e29b-41d4-a716-446655440010', 'Flat White',      'Silky smooth micro-foam over espresso',          'Coffee',  190.00, 'https://images.pexels.com/photos/312418/pexels-photo-312418.jpeg?auto=compress&cs=tinysrgb&w=400', true)
+ON CONFLICT (id) DO UPDATE SET 
+  available = EXCLUDED.available,
+  price = EXCLUDED.price,
+  description = EXCLUDED.description;
 
 -- 2. NOTE ON ADMIN PRE-EXISTENCE
 -- To make "Aman Singh" pre-exist as Admin:
