@@ -156,38 +156,46 @@ export default function Dashboard() {
                 <Package size={48} className="text-amber-900 mx-auto mb-3" />
                 <p className="text-amber-400/60">No orders yet. <Link to="/menu" className="text-amber-400 hover:underline">Browse menu</Link></p>
               </div>
-            ) : orders.map(order => {
-              return (
-                <div key={order.id} className="bg-[#2a1500] border border-amber-900/30 rounded-2xl p-5">
-                  <div className="flex items-start justify-between mb-3">
-                    <div>
-                      <p className="text-amber-100 font-bold">Order #{order.id.slice(0,8)}</p>
-                      <p className="text-amber-600 text-xs">{new Date(order.created_at).toLocaleString()}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-amber-400 font-black text-lg">₹{parseFloat(order.total_amount).toFixed(0)}</p>
-                      <span className={`text-xs px-2 py-0.5 rounded-full ${
-                        order.payment_status === 'paid' ? 'bg-green-500/20 text-green-400' : 'bg-amber-500/20 text-amber-400'
-                      }`}>{order.status}</span>
+            ) : orders.map(order => (
+              <div key={order.id} className="bg-[#2a1500] border border-amber-900/30 rounded-2xl p-5">
+                <div className="flex items-start justify-between mb-4">
+                  <div className="flex-1">
+                    <h4 className="text-amber-100 font-black text-lg">
+                      {order.order_items?.map((oi: any) => oi.menu_items?.name).join(', ') || 'Order'}
+                    </h4>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="text-amber-600 text-xs text-nowrap">Order #{order.id.slice(0, 8)}</span>
+                      <span className="text-amber-900/40 text-xs">•</span>
+                      <span className="text-amber-600 text-xs">{new Date(order.created_at).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}</span>
                     </div>
                   </div>
-                  <div className="space-y-1.5">
-                    {order.order_items?.map((item: any, i: number) => (
-                      <div key={i} className="flex justify-between text-sm">
-                        <span className="text-amber-200/70">{item.menu_items?.name} ×{item.quantity}</span>
-                        <span className="text-amber-400">₹{(item.price_at_time * item.quantity).toFixed(0)}</span>
-                      </div>
-                    ))}
+                  <div className="text-right">
+                    <p className="text-amber-400 font-black text-xl">₹{parseFloat(order.total_amount).toFixed(0)}</p>
+                    <span className={`text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full font-bold ${
+                      order.payment_status === 'paid' ? 'bg-green-500/20 text-green-400' : 'bg-amber-500/20 text-amber-400'
+                    }`}>{order.status}</span>
                   </div>
-                  {(order.discount_applied > 0 || order.points_earned > 0) && (
-                    <div className="mt-3 pt-3 border-t border-amber-900/30 flex gap-4 text-xs">
-                      {order.discount_applied > 0 && <span className="text-green-400">-₹{parseFloat(order.discount_applied).toFixed(0)} discount</span>}
-                      {order.points_earned > 0 && <span className="text-amber-400">+{order.points_earned} pts earned</span>}
-                    </div>
-                  )}
                 </div>
-              );
-            })}
+
+                <div className="space-y-2 bg-[#1a0a00]/40 rounded-xl p-3 border border-amber-900/20">
+                  {order.order_items?.map((item: any, i: number) => (
+                    <div key={i} className="flex justify-between text-sm">
+                      <span className="text-amber-200/60 font-medium">
+                        {item.menu_items?.name} <span className="text-amber-900 px-1">×</span> {item.quantity}
+                      </span>
+                      <span className="text-amber-400/80 font-bold">₹{(item.price_at_time * item.quantity).toFixed(0)}</span>
+                    </div>
+                  ))}
+                </div>
+
+                {(order.discount_applied > 0 || order.points_earned > 0) && (
+                  <div className="mt-3 pt-3 border-t border-amber-900/30 flex gap-4 text-xs">
+                    {order.discount_applied > 0 && <span className="text-green-400">-₹{parseFloat(order.discount_applied).toFixed(0)} discount</span>}
+                    {order.points_earned > 0 && <span className="text-amber-400">+{order.points_earned} pts earned</span>}
+                  </div>
+                )}
+              </div>
+            ))}
           </motion.div>
         )}
 

@@ -40,8 +40,15 @@ export default function Menu() {
       }
       const { data, error } = await query;
       if (error) throw error;
-      setItems(data && data.length > 0 ? data : (category === 'All' ? FALLBACK_MENU : FALLBACK_MENU.filter(i => i.category === category)));
-    } catch (err) { 
+      
+      const sanitizedData = (data || []).map(item => ({
+        ...item,
+        available: item.available ?? true // Default to true if null
+      }));
+
+      setItems(sanitizedData.length > 0 ? sanitizedData : (category === 'All' ? FALLBACK_MENU : FALLBACK_MENU.filter(i => i.category === category)));
+    } catch (err: any) {
+ 
       console.error(err);
       setItems(category === 'All' ? FALLBACK_MENU : FALLBACK_MENU.filter(i => i.category === category));
     }
