@@ -90,9 +90,15 @@ export default function Cart() {
         setProcessing(false);
         return;
       }
+      const rzpKey = import.meta.env.VITE_RAZORPAY_KEY_ID;
+      if (!rzpKey || rzpKey === 'rzp_test_placeholder') {
+        setMsg('Razorpay Key ID is not configured. Please add VITE_RAZORPAY_KEY_ID to your environment variables and RESTART your server.');
+        setProcessing(false);
+        return;
+      }
 
       const options = {
-        key: import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_placeholder',
+        key: rzpKey,
         amount: Math.round(finalTotal * 100), // in paise
         currency: 'INR',
         name: 'CafeHub',
